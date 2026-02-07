@@ -1,0 +1,438 @@
+openapi: 3.1.0
+info:
+  title: Social Booster Campaigns API
+  version: 1.0.0
+  description: |
+    Backend API for managing visibility campaigns, insights, and dashboard metrics.
+servers:
+  - url: http://localhost:3000/api
+tags:
+  - name: Campaigns
+    description: Campaign CRUD and insights
+  - name: Dashboard
+    description: Aggregated metrics for charts
+
+paths:
+  /campaigns:
+    get:
+      tags: [Campaigns]
+      summary: List campaigns
+      description: Returns campaigns with optional filtering and pagination.
+      parameters:
+        - name: search
+          in: query
+          description: Case-insensitive substring match on name, platform, or status.
+          schema:
+            type: string
+        - name: status
+          in: query
+          description: Filter by campaign status.
+          schema:
+            $ref: '#/components/schemas/CampaignStatus'
+        - name: platform
+          in: query
+          description: Filter by platform.
+          schema:
+            $ref: '#/components/schemas/Platform'
+        - name: limit
+          in: query
+          description: Max number of records to return (default 50, max 100).
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - name: offset
+          in: query
+          description: Records to skip for pagination (default 0).
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: Campaign list
+          headers:
+            X-Total-Count:
+              description: Total campaigns matching the filter (optional).
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Campaign'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    post:
+      tags: [Campaigns]
+      summary: Create a campaign
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CampaignCreate'
+      responses:
+        '201':
+          description: Campaign created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Campaign'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /campaigns/{id}:
+    parameters:
+      - $ref: '#/components/parameters/CampaignId'
+    get:
+      tags: [Campaigns]
+      summary: Get a campaign
+      responses:
+        '200':
+          description: Campaign found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Campaign'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    patch:
+      tags: [Campaigns]
+      summary: Update a campaign
+      description: Partial update of campaign fields.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CampaignUpdate'
+      responses:
+        '200':
+          description: Campaign updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Campaign'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    delete:
+      tags: [Campaigns]
+      summary: Delete a campaign
+      responses:
+        '204':
+          description: Campaign deleted
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /campaigns/{id}/insights:
+    parameters:
+      - $ref: '#/components/parameters/CampaignId'
+    get:
+      tags: [Campaigns]
+      summary: Get campaign insights
+      description: Returns performance metrics for a campaign.
+      responses:
+        '200':
+          description: Insights data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CampaignInsights'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          description: Insights provider unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /dashboard/metrics:
+    get:
+      tags: [Dashboard]
+      summary: Get dashboard metrics
+      responses:
+        '200':
+          description: Aggregated metrics for charts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardMetrics'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+components:
+  parameters:
+    CampaignId:
+      name: id
+      in: path
+      required: true
+      description: Campaign identifier (UUID recommended).
+      schema:
+        type: string
+        format: uuid
+
+  responses:
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    ValidationError:
+      description: Validation failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ValidationError'
+    ServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    CampaignStatus:
+      type: string
+      enum: [active, paused, completed, draft]
+
+    Platform:
+      type: string
+      enum: [facebook, google, instagram, linkedin, twitter]
+
+    Campaign:
+      type: object
+      required:
+        - id
+        - name
+        - status
+        - platform
+        - budget
+        - startDate
+        - endDate
+        - description
+        - targetAudience
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          minLength: 1
+        status:
+          $ref: '#/components/schemas/CampaignStatus'
+        platform:
+          $ref: '#/components/schemas/Platform'
+        budget:
+          type: number
+          format: float
+          minimum: 0
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        description:
+          type: string
+          minLength: 1
+        targetAudience:
+          type: string
+          minLength: 1
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CampaignCreate:
+      type: object
+      required:
+        - name
+        - status
+        - platform
+        - budget
+        - startDate
+        - endDate
+        - description
+        - targetAudience
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          minLength: 1
+        status:
+          $ref: '#/components/schemas/CampaignStatus'
+        platform:
+          $ref: '#/components/schemas/Platform'
+        budget:
+          type: number
+          format: float
+          minimum: 0
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        description:
+          type: string
+          minLength: 1
+        targetAudience:
+          type: string
+          minLength: 1
+
+    CampaignUpdate:
+      type: object
+      minProperties: 1
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          minLength: 1
+        status:
+          $ref: '#/components/schemas/CampaignStatus'
+        platform:
+          $ref: '#/components/schemas/Platform'
+        budget:
+          type: number
+          format: float
+          minimum: 0
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        description:
+          type: string
+          minLength: 1
+        targetAudience:
+          type: string
+          minLength: 1
+
+    CampaignInsights:
+      type: object
+      required:
+        - impressions
+        - clicks
+        - conversions
+        - ctr
+        - cpc
+        - roi
+        - engagement
+      properties:
+        impressions:
+          type: integer
+          minimum: 0
+        clicks:
+          type: integer
+          minimum: 0
+        conversions:
+          type: integer
+          minimum: 0
+        ctr:
+          type: number
+          format: float
+          minimum: 0
+        cpc:
+          type: number
+          format: float
+          minimum: 0
+        roi:
+          type: number
+          format: float
+        engagement:
+          type: object
+          required: [likes, shares, comments]
+          properties:
+            likes:
+              type: integer
+              minimum: 0
+            shares:
+              type: integer
+              minimum: 0
+            comments:
+              type: integer
+              minimum: 0
+
+    DashboardMetrics:
+      type: object
+      required:
+        - campaignsByStatus
+        - budgetByPlatform
+        - totalActiveBudget
+      properties:
+        campaignsByStatus:
+          type: object
+          properties:
+            active: { type: integer, minimum: 0 }
+            paused: { type: integer, minimum: 0 }
+            completed: { type: integer, minimum: 0 }
+            draft: { type: integer, minimum: 0 }
+          additionalProperties: false
+        budgetByPlatform:
+          type: object
+          properties:
+            facebook: { type: number, format: float, minimum: 0 }
+            google: { type: number, format: float, minimum: 0 }
+            instagram: { type: number, format: float, minimum: 0 }
+            linkedin: { type: number, format: float, minimum: 0 }
+            twitter: { type: number, format: float, minimum: 0 }
+          additionalProperties: false
+        totalActiveBudget:
+          type: number
+          format: float
+          minimum: 0
+
+    ValidationIssue:
+      type: object
+      required: [field, message]
+      properties:
+        field:
+          type: string
+        message:
+          type: string
+
+    ErrorResponse:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          example: not_found
+        message:
+          type: string
+          example: Campaign not found
+        details:
+          type: array
+          items:
+            $ref: '#/components/schemas/ValidationIssue'
+
+    ValidationError:
+      allOf:
+        - $ref: '#/components/schemas/ErrorResponse'
+        - type: object
+          properties:
+            code:
+              type: string
+              example: validation_error
